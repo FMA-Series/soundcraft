@@ -1,0 +1,41 @@
+name: Build ES ASIO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LLVM (libclang for the ASIO bindings)
+        id: llvm
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build SoundCraft with ASIO
+        env:
+          LIBCLANG_PATH: ${{ steps.llvm.outputs.llvm-path }}/bin
+        run: cargo build --release -p soundcraft --features asio
+
+      - name: Build the CLI
+        run: cargo build --release -p soundcraft-cli
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist
+          Copy-Item target/release/soundcraft.exe dist/
+          Copy-Item target/release/soundcraft-cli.exe dist/
+          Compress-Archive -Path dist/* -DestinationPath soundcraft-0.7.0-es-asio-windows-x64-portable.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: soundcraft-es-asio-windows-x64
+          path: soundcraft-0.7.0-es-asio-windows-x64-portable.zip
