@@ -15,12 +15,24 @@ jobs:
         with:
           version: "18"
 
+      - name: Locate libclang for bindgen
+        shell: pwsh
+        run: |
+          $dirs = @("$env:LLVM_PATH\bin", "C:\Program Files\LLVM\bin")
+          $found = $null
+          foreach ($d in $dirs) { if (Test-Path "$d\libclang.dll") { $found = $d; break } }
+          if (-not $found) {
+            $hit = Get-ChildItem "C:\Program Files\LLVM" -Recurse -Filter libclang.dll -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($hit) { $found = $hit.DirectoryName }
+          }
+          if (-not $found) { throw "libclang.dll not found under LLVM install" }
+          "LIBCLANG_PATH=$found" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "LIBCLANG_PATH set to $found"
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build SoundCraft with ASIO
-        env:
-          LIBCLANG_PATH: ${{ steps.llvm.outputs.llvm-path }}/bin
         run: cargo build --release -p soundcraft --features asio
 
       - name: Build the CLI
